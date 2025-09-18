@@ -1,0 +1,359 @@
+<!DOCTYPE html><html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>⚽ Live Signals — xG & Опасные атаки</title>
+  <!-- Telegram Mini App SDK (works when opened inside Telegram) -->
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --card: #151a2c;
+      --text: #e8ecf1;
+      --muted: #aab2c3;
+      --accent: #6ad66a;
+      --accent-2: #69a2ff;
+      --danger: #ff6b6b;
+      --warn: #ffc857;
+      --shadow: 0 10px 30px rgba(0,0,0,.35);
+      --radius: 16px;
+    }
+    html, body { height: 100%; background: var(--bg); color: var(--text); font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, 'Helvetica Neue', Arial, 'Noto Sans', 'Apple Color Emoji', 'Segoe UI Emoji'; }
+    * { box-sizing: border-box; }
+    a { color: var(--accent-2); text-decoration: none; }
+    .app { max-width: 1140px; margin: 0 auto; padding: 24px; }
+    .row { display: grid; gap: 12px; grid-template-columns: repeat(12, 1fr); align-items: end; }
+    .card { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px; }
+    .title { font-size: 22px; font-weight: 700; }
+    .subtitle { font-size: 13px; color: var(--muted); }
+    label { font-size: 13px; color: var(--muted); display: block; margin-bottom: 6px; }
+    input, select { width: 100%; background: #0f1426; color: var(--text); border: 1px solid #232a47; border-radius: 12px; padding: 10px 12px; outline: none; }
+    input::placeholder { color: #7b86a8; }
+    .btn { display: inline-flex; align-items: center; gap: 8px; background: linear-gradient(135deg, #69a2ff, #6ad66a); color: #06111a; border: 0; border-radius: 12px; padding: 10px 14px; font-weight: 700; cursor: pointer; box-shadow: var(--shadow); }
+    .btn.secondary { background: #232b49; color: var(--text); }
+    .btn.warn { background: #3a2a00; color: #ffd36a; border: 1px solid #604200; }
+    .btn:disabled { opacity: .6; cursor: not-allowed; }
+    .switch { display: inline-flex; align-items: center; gap: 8px; }
+    .switch input { width: 42px; height: 24px; appearance: none; background: #263055; border-radius: 999px; position: relative; outline: none; transition: .2s ease; }
+    .switch input::after { content: ""; width: 18px; height: 18px; background: white; border-radius: 50%; position: absolute; top: 3px; left: 3px; transition: .2s ease; }
+    .switch input:checked { background: #6ad66a; }
+    .switch input:checked::after { left: 21px; }
+    .grid-3 > * { grid-column: span 3; }
+    .grid-4 > * { grid-column: span 4; }
+    .grid-6 > * { grid-column: span 6; }
+    .grid-8 > * { grid-column: span 8; }
+    .grid-12 > * { grid-column: span 12; }.table { width: 100%; border-collapse: collapse; }
+.table th, .table td { padding: 10px 8px; border-bottom: 1px dashed #2b3154; font-size: 13px; text-align: left; }
+.badge { padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+.badge.ok { background: rgba(106, 214, 106, .15); color: #8ff58f; }
+.badge.warn { background: rgba(255, 200, 87, .15); color: #ffd36a; }
+.badge.crit { background: rgba(255, 107, 107, .15); color: #ff9a9a; }
+.pill { display: inline-flex; gap: 6px; align-items: center; padding: 6px 10px; border: 1px solid #2b3154; border-radius: 999px; font-size: 12px; color: var(--muted); }
+.flex { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.log { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace; background: #0f1426; border-radius: 12px; padding: 10px; color: #9fb0d9; height: 180px; overflow: auto; border: 1px solid #232a47; }
+.footer { color: var(--muted); font-size: 12px; text-align: center; margin-top: 18px; }
+
+@media (max-width: 880px) {
+  .row { grid-template-columns: repeat(6, 1fr); }
+  .grid-3 > * { grid-column: span 6; }
+  .grid-4 > * { grid-column: span 6; }
+  .grid-6 > * { grid-column: span 6; }
+  .grid-8 > * { grid-column: span 6; }
+}
+
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="card" style="margin-bottom:16px;">
+      <div class="title">⚽ Live Signals — xG & Опасные атаки</div>
+      <div class="subtitle">Сканирование лайв‑матчей каждые <span id="label-interval">15</span> минут. Сигнал при ничьей ≥ 75′, если у одной команды xG или Опасные атаки ≥ <b>3×</b> соперника.</div>
+    </div><div class="row grid-4">
+  <div class="card">
+    <label for="sourceUrl">Источник данных (URL JSON)</label>
+    <input id="sourceUrl" placeholder="https://YOUR_BACKEND/live.json"/>
+    <div class="subtitle" style="margin-top:6px;">⚠️ Прямой запрос к <code>flashscore.info</code> из браузера, скорее всего, заблокирует CORS/бот‑защита. Используйте свой бэкенд‑прокси или включите демо‑режим ниже.</div>
+  </div>
+  <div class="card">
+    <label for="apiHeader">Заголовок авторизации (необязательно)</label>
+    <input id="apiHeader" placeholder="Authorization: Bearer XXX"/>
+    <div class="subtitle" style="margin-top:6px;">Формат: <code>Header-Name: value</code>. Можно оставить пустым.</div>
+  </div>
+  <div class="card">
+    <label for="interval">Интервал проверки (минуты)</label>
+    <input id="interval" type="number" min="1" max="60" value="15"/>
+    <div class="flex" style="margin-top:10px;">
+      <label class="switch"><input type="checkbox" id="demoMode"><span>Демо‑режим (встроенные данные)</span></label>
+    </div>
+  </div>
+  <div class="card">
+    <div class="flex" style="justify-content: space-between;">
+      <div>
+        <div class="subtitle">Управление</div>
+        <div class="flex" style="margin-top:6px;">
+          <label class="switch"><input type="checkbox" id="soundToggle" checked><span>Звук</span></label>
+          <label class="switch"><input type="checkbox" id="notifToggle"><span>Уведомления</span></label>
+        </div>
+      </div>
+      <div class="flex">
+        <button id="btnScan" class="btn secondary">Сканировать сейчас</button>
+        <button id="btnStart" class="btn">Старт</button>
+        <button id="btnStop" class="btn warn" disabled>Стоп</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row grid-12" style="margin-top:12px;">
+  <div class="card" style="grid-column: span 8;">
+    <div class="flex" style="justify-content: space-between; align-items: center; margin-bottom: 8px;">
+      <div class="subtitle">Сработавшие сигналы</div>
+      <div class="pill"><span>Порог: 3×</span><span id="now"></span></div>
+    </div>
+    <table class="table" id="signalsTable">
+      <thead>
+        <tr>
+          <th>Время</th>
+          <th>Лига</th>
+          <th>Матч</th>
+          <th>Счёт</th>
+          <th>Минута</th>
+          <th>xG (H–A)</th>
+          <th>Оп. атаки (H–A)</th>
+          <th>Коэф.</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+  <div class="card" style="grid-column: span 4;">
+    <div class="subtitle" style="margin-bottom:6px;">Журнал</div>
+    <div class="log" id="log"></div>
+  </div>
+</div>
+
+<div class="footer">
+  Готово для GitHub Pages и Telegram Mini App. В демо‑режиме генерируются тестовые матчи с вероятными сигналами.
+</div>
+
+  </div>  <!-- tiny beep (base64) --><audio id="beep" preload="auto" src="data:audio/mp3;base64,//uQZAAAAAAAAAAAAAAAAAAAAAAAWGluZwAAAA8AAAACAAACcQAA... (shortened) "></audio>
+
+  <script>
+  // ---- Utility: Telegram integration ----
+  const Tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+  if (Tg) {
+    try {
+      Tg.ready();
+      Tg.expand();
+      Tg.MainButton.setText('Старт сканирования');
+      Tg.MainButton.onClick(() => {
+        if (state.timer) stop(); else start();
+      });
+    } catch (e) {}
+  }
+
+  // ---- State ----
+  const state = {
+    timer: null,
+    lastSignalIds: new Set(),
+  };
+
+  const $ = (sel) => document.querySelector(sel);
+  const log = (msg) => {
+    const el = $('#log');
+    const line = `[${new Date().toLocaleTimeString()}] ${msg}\n`;
+    el.textContent += line; el.scrollTop = el.scrollHeight;
+    console.log(msg);
+  };
+
+  // ---- Persistence ----
+  const LS_KEYS = ['sourceUrl','apiHeader','interval','demoMode','soundToggle','notifToggle'];
+  function loadSettings(){
+    LS_KEYS.forEach(k=>{
+      const v = localStorage.getItem(k);
+      if(v!==null){
+        const el = document.getElementById(k);
+        if(!el) return;
+        if(el.type==='checkbox') el.checked = v === 'true';
+        else el.value = v;
+      }
+    });
+    updateIntervalLabel();
+  }
+  function saveSettings(){
+    LS_KEYS.forEach(k=>{
+      const el = document.getElementById(k);
+      if(!el) return;
+      localStorage.setItem(k, el.type==='checkbox' ? String(el.checked) : el.value);
+    });
+  }
+
+  // ---- Notifications ----
+  async function ensureNotifs(){
+    const chk = $('#notifToggle');
+    if (!chk.checked) return;
+    if (!('Notification' in window)) { log('⛔ Браузер не поддерживает уведомления'); chk.checked=false; return; }
+    if (Notification.permission === 'default') {
+      const perm = await Notification.requestPermission();
+      log('Разрешение уведомлений: ' + perm);
+      if (perm !== 'granted') chk.checked=false;
+    }
+  }
+  function notify(title, body){
+    if (!$('#notifToggle').checked) return;
+    try { new Notification(title, { body }); } catch (e) {}
+    if (Tg) { try { Tg.HapticFeedback.notificationOccurred('success'); } catch(e){} }
+  }
+
+  // ---- Audio ----
+  function beep(){ if ($('#soundToggle').checked) { $('#beep').currentTime=0; $('#beep').play().catch(()=>{}); } }
+
+  // ---- UI helpers ----
+  function updateIntervalLabel(){ $('#label-interval').textContent = Number($('#interval').value || 15); }
+  function setRunning(r){
+    $('#btnStart').disabled = r; $('#btnStop').disabled = !r; if (Tg){ Tg.MainButton.setText(r ? 'Стоп' : 'Старт сканирования'); }
+  }
+
+  // ---- Demo data generator ----
+  function demoFetch(){
+    // Return structure similar to expected backend JSON
+    // { matches: [{ id, league, home, away, minute, score_home, score_away, xg_home, xg_away, da_home, da_away, odds: {home,draw,away}}] }
+    const leagues = ['EPL','LaLiga','Serie A','Bundesliga','Ligue 1','RPL'];
+    const rnd = (a,b)=> Math.random()*(b-a)+a;
+    const int = (a,b)=> Math.floor(rnd(a,b+1));
+    const matches = Array.from({length: 12}).map((_,i)=>{
+      const minute = int(60, 90);
+      const draw = Math.random() < 0.6; // more draws late game
+      const score_home = draw ? 0 : int(0,2);
+      const score_away = draw ? 0 : (score_home===0?1:int(0,2));
+      // sometimes create clear dominance to trigger signals
+      const dominant = Math.random() < 0.35;
+      let xh = rnd(0.2, 2.5), xa = rnd(0.2, 2.5), dh = int(10,90), da = int(10,90);
+      if (dominant) { if (Math.random()<0.5){ xh = xa*rnd(3,4.5); dh = Math.max(da*int(3,4), da+25);} else { xa = xh*rnd(3,4.5); da = Math.max(dh*int(3,4), dh+25);} }
+      return {
+        id: 'demo-' + Date.now() + '-' + i,
+        league: leagues[int(0,leagues.length-1)],
+        home: 'Team ' + String.fromCharCode(65+int(0,25)),
+        away: 'Team ' + String.fromCharCode(65+int(0,25)),
+        minute, score_home, score_away,
+        xg_home: +xh.toFixed(2), xg_away: +xa.toFixed(2),
+        da_home: dh, da_away: da,
+        odds: { home: +(rnd(1.5, 4).toFixed(2)), draw: +(rnd(2, 6).toFixed(2)), away: +(rnd(1.5, 4).toFixed(2)) }
+      };
+    });
+    return Promise.resolve({ matches });
+  }
+
+  // ---- Fetch from backend ----
+  async function fetchFromBackend(url, headerLine){
+    try {
+      const init = { headers: {} };
+      if (headerLine && headerLine.includes(':')){
+        const [k, ...rest] = headerLine.split(':');
+        init.headers[k.trim()] = rest.join(':').trim();
+      }
+      const res = await fetch(url, init);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return await res.json();
+    } catch (e) { throw e; }
+  }
+
+  // ---- Core scan ----
+  function isDraw(m){ return Number(m.score_home) === Number(m.score_away); }
+  function ratio(a,b){ if (b<=0) return a>0 ? Infinity : 1; return a/b; }
+
+  function evaluate(matches){
+    const result = [];
+    for (const m of matches){
+      if (!m || m.minute == null) continue;
+      if (Number(m.minute) < 75) continue;
+      if (!isDraw(m)) continue;
+      const rxgH = ratio(m.xg_home, m.xg_away);
+      const rxgA = ratio(m.xg_away, m.xg_home);
+      const rdaH = ratio(m.da_home, m.da_away);
+      const rdaA = ratio(m.da_away, m.da_home);
+      const trigH = rxgH >= 3 || rdaH >= 3;
+      const trigA = rxgA >= 3 || rdaA >= 3;
+      if (trigH || trigA){
+        const stronger = trigH ? 'H' : 'A';
+        const ratioStr = stronger==='H' ? Math.max(rxgH, rdaH).toFixed(2) : Math.max(rxgA, rdaA).toFixed(2);
+        result.push({ m, stronger, ratioStr });
+      }
+    }
+    return result;
+  }
+
+  function addRow(sig){
+    const tb = $('#signalsTable tbody');
+    const m = sig.m;
+    const id = `${m.id}@${m.minute}@${m.score_home}-${m.score_away}`;
+    if (state.lastSignalIds.has(id)) return; // avoid duplicates
+    state.lastSignalIds.add(id);
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${new Date().toLocaleTimeString()}</td>
+      <td>${m.league ?? ''}</td>
+      <td>${m.home} — ${m.away} <span class="badge ${sig.stronger==='H'?'ok':'crit'}">${sig.stronger==='H'?'Доминирует хозяин':'Доминирует гость'}</span></td>
+      <td>${m.score_home}:${m.score_away}</td>
+      <td>${m.minute}'</td>
+      <td>${(m.xg_home ?? '?')}–${(m.xg_away ?? '?')}</td>
+      <td>${(m.da_home ?? '?')}–${(m.da_away ?? '?')}</td>
+      <td>×${sig.ratioStr}</td>`;
+    tb.prepend(tr);
+
+    beep();
+    notify('Сигнал по матчу', `${m.home} — ${m.away} (${m.minute}') xG/Оп.атаки ×${sig.ratioStr}`);
+  }
+
+  async function scan(){
+    const url = $('#sourceUrl').value.trim();
+    const header = $('#apiHeader').value.trim();
+    const demo = $('#demoMode').checked;
+    try {
+      const payload = demo ? await demoFetch() : await fetchFromBackend(url, header);
+      if (!payload || !Array.isArray(payload.matches)) throw new Error('Неверный формат JSON. Ожидалось поле matches: []');
+      const signals = evaluate(payload.matches);
+      $('#now').textContent = new Date().toLocaleString();
+      if (!signals.length){ log('Совпадений не найдено.'); return; }
+      for (const s of signals) addRow(s);
+      log(`Найдено сигналов: ${signals.length}`);
+    } catch (e) {
+      log('Ошибка сканирования: ' + (e.message || e));
+    }
+  }
+
+  // ---- Scheduler ----
+  function start(){
+    saveSettings(); ensureNotifs();
+    if (state.timer) clearInterval(state.timer);
+    const mins = Math.max(1, Math.min(60, Number($('#interval').value || 15)));
+    state.timer = setInterval(scan, mins * 60 * 1000);
+    setRunning(true);
+    log('Сканер запущен: каждые ' + mins + ' мин.');
+    scan();
+  }
+  function stop(){ if (state.timer){ clearInterval(state.timer); state.timer=null; } setRunning(false); log('Сканер остановлен.'); }
+
+  // ---- Events ----
+  $('#btnStart').addEventListener('click', start);
+  $('#btnStop').addEventListener('click', stop);
+  $('#btnScan').addEventListener('click', ()=>{ saveSettings(); scan(); });
+  $('#interval').addEventListener('input', ()=>{ updateIntervalLabel(); });
+  document.querySelectorAll('#sourceUrl,#apiHeader,#demoMode,#soundToggle,#notifToggle').forEach(el=>{
+    el.addEventListener('change', saveSettings);
+  });
+
+  // ---- Service Worker (inline) for notifications longevity (optional) ----
+  try {
+    const swCode = `self.addEventListener('install', e=>self.skipWaiting()); self.addEventListener('activate', e=>self.clients.claim());`;
+    const blob = new Blob([swCode], {type:'text/javascript'});
+    const url = URL.createObjectURL(blob);
+    navigator.serviceWorker && navigator.serviceWorker.register(url).catch(()=>{});
+  } catch (e) {}
+
+  // ---- Init ----
+  loadSettings();
+  log('Готово. Настройте источник или включите демо‑режим.');
+  </script></body>
+</html>
